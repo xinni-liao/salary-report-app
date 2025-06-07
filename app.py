@@ -12,6 +12,10 @@ st.title("📊 打卡紀錄 ➜ 薪資報表 轉換工具")
 month_input = st.text_input("請輸入報表月份 (格式: YYYY-MM)")
 uploaded_files = st.file_uploader("請上傳多位員工的打卡紀錄 Excel 檔案：", type=["xlsx"], accept_multiple_files=True)
 
+# ⛑️ 修正：確保 uploaded_files 為 list，即使只上傳一個檔案也不會出錯
+if uploaded_files and not isinstance(uploaded_files, list):
+    uploaded_files = [uploaded_files]
+
 st.markdown("---")
 st.markdown("### 🧾 每位員工的基本薪資設定")
 base_salary_inputs = {}
