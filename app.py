@@ -17,15 +17,19 @@ if uploaded_files and not isinstance(uploaded_files, list):
 st.markdown("---")
 
 st.markdown("### ⏱️ 加班費級距參考表")
+ot_pay_table = {
+    0.5: 81, 1.0: 162, 1.5: 243, 2.0: 323,
+    2.5: 423, 3.0: 524, 3.5: 624, 4.0: 725,
+    4.5: 825, 5.0: 926
+}
 ot_rate_md = """
 | 加班時數 | 加班費（元） |
 |-----------|---------------|
 """
 for hour, pay in sorted(ot_pay_table.items()):
     ot_rate_md += f"| {hour} 小時 | {pay} |\n"
-
-"
 st.markdown(ot_rate_md)
+
 st.markdown("### 🧾 員工基本資料設定")
 custom_names = {}
 base_salary_inputs = {}
