@@ -12,7 +12,7 @@ st.title("📊 打卡紀錄 ➜ 薪資報表 轉換工具")
 month_input = st.text_input("請輸入報表月份 (格式: YYYY-MM)")
 uploaded_files = st.file_uploader("請上傳多位員工的打卡紀錄 Excel 檔案：", type=["xlsx"], accept_multiple_files=True)
 
-# ⛑️ 修正：確保 uploaded_files 為 list，即使只上傳一個檔案也不會出錯
+# 確保 uploaded_files 為 list，即使只上傳一個檔案也不會出錯
 if uploaded_files and not isinstance(uploaded_files, list):
     uploaded_files = [uploaded_files]
 
@@ -43,6 +43,19 @@ for label, default_val in company_cost_items_default:
 
 company_cost_total = sum([v for _, v in company_cost_items])
 
+st.markdown("### 🧾 公司實際負擔項目（即時更新）")
+
+company_table_md = """
+| 項目             | 金額（元） |
+|------------------|------------|
+"""
+for label, value in company_cost_items:
+    company_table_md += f"| {label} | {int(value)} |\n"
+company_table_md += f"| **總額** | **{int(company_cost_total)}** |"
+
+st.markdown(company_table_md)
+
+# 加班費表（固定級距）
 ot_pay_table = {
     0.5: 81,
     1.0: 162,
@@ -174,5 +187,3 @@ if uploaded_files and month_input:
         file_name=f"{month_input}_完整薪資報表.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
-    st.image("/mnt/data/22a9c9f3-2779-435a-ae1a-ee3145ff39bc.png", caption="公司實際負擔項目")
