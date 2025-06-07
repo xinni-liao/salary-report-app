@@ -1,3 +1,5 @@
+（以下為更新後完整程式碼）
+
 import streamlit as st
 import pandas as pd
 import io
@@ -14,13 +16,16 @@ if uploaded_files and not isinstance(uploaded_files, list):
     uploaded_files = [uploaded_files]
 
 st.markdown("---")
-st.markdown("### 🧾 每位員工的基本薪資設定")
+st.markdown("### 🧾 員工基本資料設定")
+custom_names = {}
 base_salary_inputs = {}
 
 if uploaded_files:
     for file in uploaded_files:
-        name = file.name.split(".")[0].replace(".xlsx", "")
-        base_salary_inputs[name] = st.number_input(f"輸入 {name} 的基本薪資：", value=30000, step=1000)
+        default_name = file.name.split(".")[0].replace(".xlsx", "")
+        custom_name = st.text_input(f"輸入檔案 {file.name} 的員工姓名（預設：{default_name}）：", value=default_name)
+        custom_names[file.name] = custom_name
+        base_salary_inputs[custom_name] = st.number_input(f"輸入 {custom_name} 的基本薪資：", value=30000, step=1000)
 
 st.markdown("---")
 st.markdown("### 🧮 公司負擔金額調整（可修改）")
@@ -41,7 +46,6 @@ for label, default_val in company_cost_items_default:
 company_cost_total = sum([v for _, v in company_cost_items])
 
 st.markdown("### 🧾 公司實際負擔項目（即時更新）")
-
 company_table_md = """
 | 項目             | 金額（元） |
 |------------------|------------|
@@ -49,13 +53,24 @@ company_table_md = """
 for label, value in company_cost_items:
     company_table_md += f"| {label} | {int(value)} |\n"
 company_table_md += f"| **總額** | **{int(company_cost_total)}** |"
-
 st.markdown(company_table_md)
 
 def format_hours_minutes(hours):
     h = int(hours)
     m = int(round((hours - h) * 60))
     return f"{h}小時{m}分"
+
+def parse_hours_str(text):
+    try:
+        h, m = 0, 0
+        if "小時" in text:
+            h = int(text.split("小時")[0])
+            text = text.split("小時")[1]
+            if "分" in text:
+                m = int(text.split("分")[0])
+        return round(h + m / 60, 2)
+    except:
+        return 0
 
 ot_pay_table = {
     0.5: 81, 1.0: 162, 1.5: 243, 2.0: 323,
@@ -78,7 +93,7 @@ if uploaded_files and month_input:
     money_format = workbook.add_format({"num_format": "#,##0", "border": 1, "align": "center"})
 
     for file in uploaded_files:
-        name = file.name.split(".")[0].replace(".xlsx", "")
+        name = custom_names[file.name]
         base_salary = base_salary_inputs.get(name, 30000)
 
         df = pd.read_excel(file, header=None)
@@ -103,8 +118,8 @@ if uploaded_files and month_input:
                     records.append({
                         "日期": date.day,
                         "上班時間": f"{in_time}~{out_time}",
-                        "上班時數": total_hours,
-                        "加班時數": ot_hours if ot_hours > 0 else '',
+                        "上班時數": format_hours_minutes(total_hours),
+                        "加班時數": format_hours_minutes(ot_hours) if ot_hours > 0 else '',
                         "加班費": ot_pay if ot_hours > 0 else ''
                     })
                     i += 2
@@ -134,12 +149,12 @@ if uploaded_files and month_input:
         edited_df = st.data_editor(df_person, use_container_width=True, num_rows="dynamic")
 
         recalculated_df = edited_df.copy()
-        recalculated_df["上班時數"] = recalculated_df["上班時數"].replace('', 0).astype(float)
-        recalculated_df["加班時數"] = recalculated_df["加班時數"].replace('', 0).astype(float)
-        recalculated_df["加班費"] = recalculated_df["加班費"].replace('', 0).astype(float)
+        recalculated_df["上班時數(轉換)"] = edited_df["上班時數"].apply(lambda x: parse_hours_str(str(x)))
+        recalculated_df["加班時數(轉換)"] = edited_df["加班時數"].apply(lambda x: parse_hours_str(str(x)))
+        recalculated_df["加班費"] = recalculated_df["加班時數(轉換)"].apply(calc_ot_pay)
 
-        total_work = recalculated_df["上班時數"].sum()
-        total_ot = recalculated_df["加班時數"].sum()
+        total_work = recalculated_df["上班時數(轉換)"].sum()
+        total_ot = recalculated_df["加班時數(轉換)"].sum()
         total_pay = recalculated_df["加班費"].sum()
         total_salary = base_salary + total_pay
 
@@ -168,7 +183,6 @@ if uploaded_files and month_input:
     workbook = xlsxwriter.Workbook(output, {"in_memory": True})
     summary_sheet = workbook.add_worksheet("總表")
     summary_headers = list(summary_df.columns)
-    header_format = workbook.add_format({"bold": True, "border": 1})
     for col_num, h in enumerate(summary_headers):
         summary_sheet.write(0, col_num, h, header_format)
     for row_num, row in summary_df.iterrows():
