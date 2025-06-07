@@ -1,3 +1,4 @@
+（以下為更新後完整程式碼）
 
 import streamlit as st
 import pandas as pd
@@ -27,10 +28,11 @@ ot_rate_md = """
 |-----------|---------------|
 """
 for hour, pay in sorted(ot_pay_table.items()):
-    ot_rate_md += f"| {hour} 小時 | {pay} |\n"
+    ot_rate_md += f"| {hour} 小時 | {pay} |
+"
 st.markdown(ot_rate_md)
 
-st.markdown("### 🧾 員工基本資料設定")
+
 custom_names = {}
 base_salary_inputs = {}
 
@@ -156,7 +158,13 @@ if uploaded_files and month_input:
                 "加班費": ''
             })
 
-        df_person = pd.DataFrame(records)
+        for record in records:
+    if record.get("上班時間") not in ["休假", ""] and ("~" not in record.get("上班時間", "")):
+        record["異常提醒"] = "⚠️ 打卡不完整，請確認"
+    else:
+        record["異常提醒"] = ""
+
+df_person = pd.DataFrame(records)
         df_person.sort_values(by="日期", inplace=True)
 
         st.markdown(f"#### 📋 員工：{name} 的出勤報表")
