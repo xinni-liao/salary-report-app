@@ -129,10 +129,25 @@ if uploaded_files and month_input:
 
         df_person = pd.DataFrame(records)
         df_person.sort_values(by="日期", inplace=True)
-        total_work = df_person["上班時數"].replace('', 0).astype(float).sum()
-        total_ot = df_person["加班時數"].replace('', 0).astype(float).sum()
-        total_pay = df_person["加班費"].replace('', 0).astype(float).sum()
+
+        st.markdown(f"#### 📋 員工：{name} 的出勤報表")
+        edited_df = st.data_editor(df_person, use_container_width=True, num_rows="dynamic")
+
+        recalculated_df = edited_df.copy()
+        recalculated_df["上班時數"] = recalculated_df["上班時數"].replace('', 0).astype(float)
+        recalculated_df["加班時數"] = recalculated_df["加班時數"].replace('', 0).astype(float)
+        recalculated_df["加班費"] = recalculated_df["加班費"].replace('', 0).astype(float)
+
+        total_work = recalculated_df["上班時數"].sum()
+        total_ot = recalculated_df["加班時數"].sum()
+        total_pay = recalculated_df["加班費"].sum()
         total_salary = base_salary + total_pay
+
+        st.write("#### 📈 本月統計結果")
+        st.write(f"🕒 總上班時數：{format_hours_minutes(total_work)}")
+        st.write(f"⏱️ 總加班時數：{format_hours_minutes(total_ot)}")
+        st.write(f"💰 加班費：{int(total_pay)} 元")
+        st.write(f"💼 應發薪資總額：{int(total_salary)} 元")
 
         summary_data.append({
             "員工姓名": name,
@@ -144,49 +159,21 @@ if uploaded_files and month_input:
             "公司額外負擔": company_cost_total
         })
 
-        sheet = workbook.add_worksheet(name)
-        sheet.write("A1", "員工姓名", header_format)
-        sheet.write("B1", name, cell_format)
-        sheet.write("C1", "月份", header_format)
-        sheet.write("D1", month_input, cell_format)
-        headers = ["日期", "上班時間", "上班時數", "加班時數", "加班費"]
-        for col_num, h in enumerate(headers):
-            sheet.write(2, col_num, h, header_format)
-        for row_num, row in df_person.iterrows():
-            for col_num, key in enumerate(headers):
-                fmt = money_format if key == "加班費" else cell_format
-                row_data = row[key]
-                if key in ["上班時數", "加班時數"] and isinstance(row_data, (int, float)):
-                    row_data = format_hours_minutes(row_data)
-                sheet.write(row_num + 3, col_num, row_data, fmt)
-        summary_row = len(df_person) + 4
-        sheet.write(summary_row, 0, "總上班時數", header_format)
-        sheet.write(summary_row, 1, format_hours_minutes(total_work), cell_format)
-        sheet.write(summary_row + 1, 0, "總加班時數", header_format)
-        sheet.write(summary_row + 1, 1, format_hours_minutes(total_ot), cell_format)
-        sheet.write(summary_row + 2, 0, "加班費", header_format)
-        sheet.write(summary_row + 2, 1, total_pay, money_format)
-        sheet.write(summary_row + 3, 0, "基本薪資", header_format)
-        sheet.write(summary_row + 3, 1, base_salary, money_format)
-        sheet.write(summary_row + 4, 0, "應發薪資總額", header_format)
-        sheet.write(summary_row + 4, 1, total_salary, money_format)
-        sheet.write(summary_row + 6, 0, "以下公司負擔", header_format)
-        for i, (label, amount) in enumerate(company_cost_items):
-            sheet.write(summary_row + 7 + i, 0, label, cell_format)
-            sheet.write(summary_row + 7 + i, 1, amount, money_format)
-        sheet.write(summary_row + 7 + len(company_cost_items), 0, "總額", header_format)
-        sheet.write(summary_row + 7 + len(company_cost_items), 1, company_cost_total, money_format)
-
     summary_df = pd.DataFrame(summary_data)
+    st.markdown("---")
+    st.markdown("### 🧾 薪資報表總覽（下載前預覽）")
+    st.dataframe(summary_df, use_container_width=True)
+
+    output = io.BytesIO()
+    workbook = xlsxwriter.Workbook(output, {"in_memory": True})
     summary_sheet = workbook.add_worksheet("總表")
     summary_headers = list(summary_df.columns)
+    header_format = workbook.add_format({"bold": True, "border": 1})
     for col_num, h in enumerate(summary_headers):
         summary_sheet.write(0, col_num, h, header_format)
     for row_num, row in summary_df.iterrows():
         for col_num, h in enumerate(summary_headers):
-            fmt = money_format if isinstance(row[h], (int, float)) else cell_format
-            summary_sheet.write(row_num + 1, col_num, row[h], fmt)
-
+            summary_sheet.write(row_num + 1, col_num, row[h])
     workbook.close()
     output.seek(0)
 
