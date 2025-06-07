@@ -1,4 +1,4 @@
-# 以下為更新後完整程式碼
+（以下為更新後完整程式碼）
 
 import streamlit as st
 import pandas as pd
@@ -16,6 +16,16 @@ if uploaded_files and not isinstance(uploaded_files, list):
     uploaded_files = [uploaded_files]
 
 st.markdown("---")
+
+st.markdown("### ⏱️ 加班費級距參考表")
+ot_rate_md = """
+| 加班時數 | 加班費（元） |
+|-----------|---------------|
+"""
+for hour, pay in sorted(ot_pay_table.items()):
+    ot_rate_md += f"| {hour} 小時 | {pay} |
+"
+st.markdown(ot_rate_md)
 st.markdown("### 🧾 員工基本資料設定")
 custom_names = {}
 base_salary_inputs = {}
