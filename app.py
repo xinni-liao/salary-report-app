@@ -1,3 +1,4 @@
+（以下為更新後完整程式碼）
 
 import streamlit as st
 import pandas as pd
@@ -93,12 +94,6 @@ def calc_ot_pay(ot_hours):
 
 if uploaded_files and month_input:
     summary_data = []
-    output = io.BytesIO()
-    workbook = xlsxwriter.Workbook(output, {"in_memory": True})
-    header_format = workbook.add_format({"bold": True, "border": 1, "align": "center"})
-    cell_format = workbook.add_format({"border": 1, "align": "center"})
-    money_format = workbook.add_format({"num_format": "#,##0", "border": 1, "align": "center"})
-
     for file in uploaded_files:
         name = custom_names[file.name]
         base_salary = base_salary_inputs.get(name, 30000)
@@ -120,7 +115,7 @@ if uploaded_files and month_input:
                     out_time = row_out["時間"].strftime("%H:%M")
                     work_duration = row_out["時間"] - row_in["時間"]
                     total_hours = round(work_duration.total_seconds() / 3600, 2)
-                    ot_hours = round(max(total_hours - 8, 0), 2)
+                    ot_hours = round(max(total_hours - 9, 0), 2)  # 改為九小時後才算加班
                     ot_pay = calc_ot_pay(ot_hours)
                     records.append({
                         "日期": date.day,
@@ -193,15 +188,9 @@ if uploaded_files and month_input:
     st.dataframe(summary_df, use_container_width=True)
 
     output = io.BytesIO()
-    workbook = xlsxwriter.Workbook(output, {"in_memory": True})
-    summary_sheet = workbook.add_worksheet("總表")
-    summary_headers = list(summary_df.columns)
-    for col_num, h in enumerate(summary_headers):
-        summary_sheet.write(0, col_num, h, header_format)
-    for row_num, row in summary_df.iterrows():
-        for col_num, h in enumerate(summary_headers):
-            summary_sheet.write(row_num + 1, col_num, row[h])
-    workbook.close()
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+        summary_df.to_excel(writer, sheet_name="總表", index=False)
+        writer.save()
     output.seek(0)
 
     st.download_button(
