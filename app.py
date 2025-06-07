@@ -1,99 +1,174 @@
 import streamlit as st
 import pandas as pd
 import io
-from datetime import datetime
+from datetime import datetime, timedelta
 import xlsxwriter
+import re
+from PIL import Image
 
-st.set_page_config(page_title="員工薪資報表工具", layout="centered")
-st.title("📊 員工薪資報表產出工具")
+st.set_page_config(page_title="薪資報表轉換工具", layout="centered")
+st.title("📊 打卡紀錄 ➜ 薪資報表 轉換工具")
 
-# 員工姓名輸入
-name = st.text_input("請輸入員工姓名（將顯示於報表中）", max_chars=20)
+month_input = st.text_input("請輸入報表月份 (格式: YYYY-MM)")
+uploaded_files = st.file_uploader("請上傳多位員工的打卡紀錄 Excel 檔案：", type=["xlsx"], accept_multiple_files=True)
 
-# 上傳 Excel 檔案
-uploaded_file = st.file_uploader("請上傳當月 Excel 加班明細表格：", type=["xlsx"])
+st.markdown("---")
+st.markdown("### 🧾 每位員工的基本薪資設定")
+base_salary_inputs = {}
 
-if uploaded_file and name:
-    # 讀取 Excel
-    df = pd.read_excel(uploaded_file, sheet_name=0, skiprows=1)
-    df.columns = ["日期", "上班時間", "上班時數", "加班時數", "加班費"]
+if uploaded_files:
+    for file in uploaded_files:
+        name = file.name.split(".")[0].replace(".xlsx", "")
+        base_salary_inputs[name] = st.number_input(f"輸入 {name} 的基本薪資：", value=30000, step=1000)
 
-    # 數值欄位處理
-    for col in ["上班時數", "加班時數", "加班費"]:
-        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+st.markdown("---")
+st.markdown("### 🧮 公司負擔金額調整（可修改）")
 
-    # 判斷是否週末
-    def is_weekend(day):
-        try:
-            weekday = datetime(datetime.now().year, datetime.now().month, int(day)).weekday()
-            return "✅" if weekday >= 5 else ""
-        except:
-            return ""
+company_cost_items_default = [
+    ("原本你應自付勞保", 715),
+    ("原本你應自付健保", 443),
+    ("公司負擔健保", 1384),
+    ("公司負擔勞保", 2501),
+    ("公司負擔勞退", 1715)
+]
 
-    df["是否週末"] = df["日期"].apply(is_weekend)
+company_cost_items = []
+for label, default_val in company_cost_items_default:
+    value = st.number_input(f"{label}：", value=default_val, step=100)
+    company_cost_items.append((label, value))
 
-    # 統計資訊
-    total_days = df.shape[0]
-    total_work_hours = df["上班時數"].sum()
-    total_ot_hours = df["加班時數"].sum()
-    total_ot_pay = df["加班費"].sum()
+company_cost_total = sum([v for _, v in company_cost_items])
 
-    st.subheader("📋 資料預覽")
-    st.dataframe(df, use_container_width=True)
+ot_pay_table = {
+    0.5: 81,
+    1.0: 162,
+    1.5: 243,
+    2.0: 323,
+    2.5: 423,
+    3.0: 524,
+    3.5: 624,
+    4.0: 725,
+    4.5: 825,
+    5.0: 926,
+}
 
-    st.subheader("📌 統計摘要")
-    st.markdown(f"- 員工姓名：**{name}**")
-    st.markdown(f"- 上班天數：{total_days} 天")
-    st.markdown(f"- 上班時數：{total_work_hours} 小時")
-    st.markdown(f"- 加班時數：{total_ot_hours} 小時")
-    st.markdown(f"- 加班費總計：NT$ {total_ot_pay:,.0f}")
+def calc_ot_pay(ot_hours):
+    for k in sorted(ot_pay_table.keys(), reverse=True):
+        if ot_hours >= k:
+            return ot_pay_table[k]
+    return 0
 
-    # 建立 Excel 檔
+if uploaded_files and month_input:
+    summary_data = []
     output = io.BytesIO()
     workbook = xlsxwriter.Workbook(output, {"in_memory": True})
-    worksheet = workbook.add_worksheet("薪資報表")
-
-    # 格式樣式
     header_format = workbook.add_format({"bold": True, "border": 1, "align": "center"})
     cell_format = workbook.add_format({"border": 1, "align": "center"})
     money_format = workbook.add_format({"num_format": "#,##0", "border": 1, "align": "center"})
 
-    # 第一列：員工姓名
-    worksheet.write("A1", "員工姓名", header_format)
-    worksheet.write("B1", name, cell_format)
+    for file in uploaded_files:
+        name = file.name.split(".")[0].replace(".xlsx", "")
+        base_salary = base_salary_inputs.get(name, 30000)
 
-    # 第二列開始寫入表格標題
-    headers = df.columns.tolist()
-    for col_num, value in enumerate(headers):
-        worksheet.write(2, col_num, value, header_format)
+        df = pd.read_excel(file, header=None)
+        df.columns = ["狀態", "時間", "工時"]
+        df = df.dropna(subset=["時間"])
+        df["時間"] = pd.to_datetime(df["時間"])
 
-    # 資料內容
-    for row_num, row in df.iterrows():
-        for col_num, value in enumerate(row):
-            fmt = money_format if headers[col_num] == "加班費" else cell_format
-            worksheet.write(row_num + 3, col_num, value, fmt)
+        records = []
+        i = 0
+        while i < len(df):
+            if i + 1 < len(df):
+                row_in = df.iloc[i]
+                row_out = df.iloc[i + 1]
+                if row_in["狀態"] == "上班" and row_out["狀態"] == "下班":
+                    date = row_in["時間"].date()
+                    in_time = row_in["時間"].strftime("%H:%M")
+                    out_time = row_out["時間"].strftime("%H:%M")
+                    work_duration = row_out["時間"] - row_in["時間"]
+                    total_hours = round(work_duration.total_seconds() / 3600, 1)
+                    ot_hours = round(max(total_hours - 8, 0), 1)
+                    ot_pay = calc_ot_pay(ot_hours)
 
-    # 底部總結
-    summary_start = df.shape[0] + 4
-    worksheet.write(summary_start, 0, "上班天數", header_format)
-    worksheet.write(summary_start, 1, total_days, cell_format)
-    worksheet.write(summary_start + 1, 0, "上班時數", header_format)
-    worksheet.write(summary_start + 1, 1, total_work_hours, cell_format)
-    worksheet.write(summary_start + 2, 0, "加班時數", header_format)
-    worksheet.write(summary_start + 2, 1, total_ot_hours, cell_format)
-    worksheet.write(summary_start + 3, 0, "加班費總計", header_format)
-    worksheet.write(summary_start + 3, 1, total_ot_pay, money_format)
+                    records.append({
+                        "日期": date.day,
+                        "上班時間": f"{in_time}~{out_time}",
+                        "上班時數": total_hours,
+                        "加班時數": ot_hours if ot_hours > 0 else '',
+                        "加班費": ot_pay if ot_hours > 0 else ''
+                    })
+                    i += 2
+                else:
+                    i += 1
+            else:
+                i += 1
 
-    worksheet.set_column("A:F", 15)
+        df_person = pd.DataFrame(records)
+        df_person.sort_values(by="日期", inplace=True)
+        total_work = df_person["上班時數"].sum()
+        total_ot = df_person["加班時數"].replace('', 0).astype(float).sum()
+        total_pay = df_person["加班費"].replace('', 0).astype(float).sum()
+        total_salary = base_salary + total_pay
+
+        summary_data.append({
+            "員工姓名": name,
+            "基本薪資": base_salary,
+            "總上班時數": total_work,
+            "總加班時數": total_ot,
+            "加班費": total_pay,
+            "應發薪資總額": total_salary,
+            "公司額外負擔": company_cost_total
+        })
+
+        sheet = workbook.add_worksheet(name)
+        sheet.write("A1", "員工姓名", header_format)
+        sheet.write("B1", name, cell_format)
+        sheet.write("C1", "月份", header_format)
+        sheet.write("D1", month_input, cell_format)
+        headers = ["日期", "上班時間", "上班時數", "加班時數", "加班費"]
+        for col_num, h in enumerate(headers):
+            sheet.write(2, col_num, h, header_format)
+        for row_num, row in df_person.iterrows():
+            for col_num, key in enumerate(headers):
+                fmt = money_format if key == "加班費" else cell_format
+                sheet.write(row_num + 3, col_num, row[key], fmt)
+        summary_row = len(df_person) + 4
+        sheet.write(summary_row, 0, "總上班時數", header_format)
+        sheet.write(summary_row, 1, total_work, cell_format)
+        sheet.write(summary_row + 1, 0, "總加班時數", header_format)
+        sheet.write(summary_row + 1, 1, total_ot, cell_format)
+        sheet.write(summary_row + 2, 0, "加班費", header_format)
+        sheet.write(summary_row + 2, 1, total_pay, money_format)
+        sheet.write(summary_row + 3, 0, "基本薪資", header_format)
+        sheet.write(summary_row + 3, 1, base_salary, money_format)
+        sheet.write(summary_row + 4, 0, "應發薪資總額", header_format)
+        sheet.write(summary_row + 4, 1, total_salary, money_format)
+
+        sheet.write(summary_row + 6, 0, "以下公司負擔", header_format)
+        for i, (label, amount) in enumerate(company_cost_items):
+            sheet.write(summary_row + 7 + i, 0, label, cell_format)
+            sheet.write(summary_row + 7 + i, 1, amount, money_format)
+        sheet.write(summary_row + 7 + len(company_cost_items), 0, "總額", header_format)
+        sheet.write(summary_row + 7 + len(company_cost_items), 1, company_cost_total, money_format)
+
+    summary_df = pd.DataFrame(summary_data)
+    summary_sheet = workbook.add_worksheet("總表")
+    summary_headers = list(summary_df.columns)
+    for col_num, h in enumerate(summary_headers):
+        summary_sheet.write(0, col_num, h, header_format)
+    for row_num, row in summary_df.iterrows():
+        for col_num, h in enumerate(summary_headers):
+            fmt = money_format if isinstance(row[h], (int, float)) else cell_format
+            summary_sheet.write(row_num + 1, col_num, row[h], fmt)
+
     workbook.close()
     output.seek(0)
 
-    # 下載報表（動態命名）
-    current_month = datetime.now().strftime("%Y-%m")
-    filename = f"{current_month}_{name}_薪資報表.xlsx"
     st.download_button(
-        label="📥 下載薪資報表（Excel）",
+        label="📥 下載完整薪資報表（Excel）",
         data=output,
-        file_name=filename,
+        file_name=f"{month_input}_完整薪資報表.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
+    st.image("/mnt/data/22a9c9f3-2779-435a-ae1a-ee3145ff39bc.png", caption="公司實際負擔項目")
