@@ -1,4 +1,4 @@
-（以下為更新後完整程式碼）
+# 以下為更新後完整程式碼
 
 import streamlit as st
 import pandas as pd
