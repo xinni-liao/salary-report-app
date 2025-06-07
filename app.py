@@ -1,4 +1,4 @@
-（以下為更新後完整程式碼）
+
 
 import streamlit as st
 import pandas as pd
@@ -115,7 +115,7 @@ if uploaded_files and month_input:
                     out_time = row_out["時間"].strftime("%H:%M")
                     work_duration = row_out["時間"] - row_in["時間"]
                     total_hours = round(work_duration.total_seconds() / 3600, 2)
-                    ot_hours = round(max(total_hours - 9, 0), 2)  # 改為九小時後才算加班
+                    ot_hours = round(max(total_hours - 9, 0), 2)  # 九小時後才算加班
                     ot_pay = calc_ot_pay(ot_hours)
                     records.append({
                         "日期": date.day,
@@ -190,7 +190,6 @@ if uploaded_files and month_input:
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         summary_df.to_excel(writer, sheet_name="總表", index=False)
-        writer.save()
     output.seek(0)
 
     st.download_button(
