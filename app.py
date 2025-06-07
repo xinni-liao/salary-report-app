@@ -1,3 +1,4 @@
+（以下為更新後完整程式碼）
 
 import streamlit as st
 import pandas as pd
@@ -29,8 +30,6 @@ ot_rate_md = """
 for hour, pay in sorted(ot_pay_table.items()):
     ot_rate_md += f"| {hour} 小時 | {pay} |\n"
 st.markdown(ot_rate_md)
-
-
 
 custom_names = {}
 base_salary_inputs = {}
@@ -86,12 +85,6 @@ def parse_hours_str(text):
         return round(h + m / 60, 2)
     except:
         return 0
-
-ot_pay_table = {
-    0.5: 81, 1.0: 162, 1.5: 243, 2.0: 323,
-    2.5: 423, 3.0: 524, 3.5: 624, 4.0: 725,
-    4.5: 825, 5.0: 926
-}
 
 def calc_ot_pay(ot_hours):
     for k in sorted(ot_pay_table.keys(), reverse=True):
@@ -158,12 +151,12 @@ if uploaded_files and month_input:
             })
 
         for record in records:
-    if record.get("上班時間") not in ["休假", ""] and ("~" not in record.get("上班時間", "")):
-        record["異常提醒"] = "⚠️ 打卡不完整，請確認"
-    else:
-        record["異常提醒"] = ""
+            if record.get("上班時間") not in ["休假", ""] and ("~" not in record.get("上班時間", "")):
+                record["異常提醒"] = "⚠️ 打卡不完整，請確認"
+            else:
+                record["異常提醒"] = ""
 
-df_person = pd.DataFrame(records)
+        df_person = pd.DataFrame(records)
         df_person.sort_values(by="日期", inplace=True)
 
         st.markdown(f"#### 📋 員工：{name} 的出勤報表")
