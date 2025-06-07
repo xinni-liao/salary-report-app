@@ -22,7 +22,8 @@ ot_rate_md = """
 |-----------|---------------|
 """
 for hour, pay in sorted(ot_pay_table.items()):
-    ot_rate_md += f"| {hour} 小時 | {pay} |
+    ot_rate_md += f"| {hour} 小時 | {pay} |\n"
+
 "
 st.markdown(ot_rate_md)
 st.markdown("### 🧾 員工基本資料設定")
