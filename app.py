@@ -196,6 +196,16 @@ if uploaded_files and month_input:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
+    # 異常提醒邏輯整合至正確縮排
+    for idx, row in df_person.iterrows():
+        if row["上班時間"] not in ["休假", ""] and ("~" not in str(row["上班時間"])):
+            df_person.at[idx, "異常提醒"] = "⚠️ 打卡不完整，請確認"
+        elif row["未滿9小時提醒"]:
+            df_person.at[idx, "異常提醒"] = f"⏰ 還差 {row['未滿9小時提醒']} 滿9小時",
+        file_name=f"{month_input}_薪資報表.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
             for idx, row in df_person.iterrows():
                 if row["上班時間"] not in ["休假", ""] and ("~" not in str(row["上班時間"])):
                     df_person.at[idx, "異常提醒"] = "⚠️ 打卡不完整，請確認"
