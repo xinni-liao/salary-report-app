@@ -161,13 +161,15 @@ if uploaded_files and month_input:
         df_person = pd.DataFrame(records)
         df_person.sort_values(by=["日期"], inplace=True)
 
-        # ====== 前端出勤報表可編輯，總統計即時變動 ======
-        show_df = df_person.drop(columns=["上班時數(轉換)", "加班時數(轉換)"])
+        # ====== 前端出勤報表可編輯，加班費可手動輸入 ======
+        show_df = df_person.drop(columns=["上班時數(轉換)", "加班時數(轉換)"]).copy()
+        show_df["加班費"] = show_df["加班費"].astype(str)  # 讓加班費欄位一定可手動編輯
+
         st.markdown(f"#### 🧾 出勤報表總覽 - {name}")
         edited_df = st.data_editor(show_df, key=f"editor_{name}", use_container_width=True, num_rows="dynamic")
 
         # 重新計算統計（以你最新編輯內容為準）
-        total_ot_pay = pd.to_numeric(edited_df["加班費"].replace('', 0)).sum()
+        total_ot_pay = pd.to_numeric(edited_df["加班費"].replace('', 0), errors="coerce").sum()
         total_work_hours = edited_df["上班時數"].apply(parse_hours_str).sum()
         total_ot_hours = edited_df["加班時數"].apply(parse_hours_str).sum()
         total_salary = base_salary + total_ot_pay + extra_bonus
