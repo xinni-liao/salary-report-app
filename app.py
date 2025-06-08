@@ -60,7 +60,7 @@ for label, default_val in company_cost_items_default:
 
 company_cost_total = sum([v for _, v in company_cost_items])
 
-st.markdown("### 🧾 公司實際負擔項目（即時更新）")
+# 合併後，這裡不再顯示「公司實際負擔項目（即時更新）」，僅產生 company_table_md 供下方使用
 company_table_md = """
 | 項目             | 金額（元） |
 |------------------|------------|
@@ -68,7 +68,6 @@ company_table_md = """
 for label, value in company_cost_items:
     company_table_md += f"| {label} | {int(value)} |\n"
 company_table_md += f"| **總額** | **{int(company_cost_total)}** |"
-st.markdown(company_table_md)
 
 def format_hours_minutes(hours):
     h = int(hours)
