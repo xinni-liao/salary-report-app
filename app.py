@@ -1,4 +1,5 @@
 
+
 import streamlit as st
 import pandas as pd
 import io
@@ -179,6 +180,8 @@ if uploaded_files and month_input:
 
         # 將總表寫入 Excel
         df_summary = pd.DataFrame(summary_data)
+        df_summary["公司負擔金額"] = company_cost_total
+        df_summary["公司實付總金額"] = df_summary["應發總薪資"] + df_summary["公司負擔金額"]
         df_summary.to_excel(writer, sheet_name="總表", index=False)
 
         # 公司負擔資訊
@@ -189,4 +192,10 @@ if uploaded_files and month_input:
     # 加入下載按鈕
     st.markdown("---")
     st.markdown("### 📥 下載完整薪資報表")
+    st.download_button(
+        label="📂 下載 Excel 報表",
+        data=output.getvalue(),
+        file_name=f"{month_input}_薪資報表.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
     
