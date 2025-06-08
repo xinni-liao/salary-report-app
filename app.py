@@ -1,4 +1,4 @@
-
+（以下為更新後完整程式碼）
 
 import streamlit as st
 import pandas as pd
@@ -159,6 +159,12 @@ if uploaded_files and month_input:
             st.markdown(f"#### 🧾 {name} 的出勤報表")
             st.dataframe(styled_df, use_container_width=True)
 
+            st.markdown(f"**🔢 {name} 統計資料：**")
+            st.markdown(f"- 總工時：{format_hours_minutes(total_work_hours)}")
+            st.markdown(f"- 總加班時數：{format_hours_minutes(total_ot_hours)}")
+            st.markdown(f"- 總加班費：{total_ot_pay} 元")
+            st.markdown(f"- 應發總薪資：{total_salary} 元")
+
             # 統計總工時、總加班時數與總加班費
             df_person["上班時數(轉換)"] = df_person["上班時數"].apply(lambda x: parse_hours_str(str(x)))
             df_person["加班時數(轉換)"] = df_person["加班時數"].apply(lambda x: parse_hours_str(str(x)))
@@ -167,6 +173,7 @@ if uploaded_files and month_input:
             total_ot_pay = df_person["加班費"].replace('', 0).astype(int).sum()
             total_salary = base_salary + total_ot_pay
 
+            df_person.drop(columns=["上班時數(轉換)", "加班時數(轉換)"], inplace=True)
             df_person.to_excel(writer, sheet_name=name, index=False)
 
             summary_data.append({
