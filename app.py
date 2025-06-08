@@ -196,25 +196,26 @@ if uploaded_files and month_input:
 
         all_records.append(df_person.drop(columns=["上班時數(轉換)", "加班時數(轉換)"]))
 
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        df_all = pd.concat(all_records)
-        df_all.to_excel(writer, sheet_name="薪資報表", index=False)
+  output = io.BytesIO()
+with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+    df_all = pd.concat(all_records)
+    # 表格從第1列開始，0列寫標題
+    df_all.to_excel(writer, sheet_name="薪資報表", index=False, startrow=1)
+    workbook  = writer.book
+    worksheet = writer.sheets["薪資報表"]
+    worksheet.write(0, 0, "出勤報表總覽", workbook.add_format({'bold': True, 'font_size': 20}))
 
-        workbook  = writer.book
-        worksheet = writer.sheets["薪資報表"]
-        worksheet.write(0, 0, "出勤報表總覽", workbook.add_format({'bold': True, 'font_size': 20}))
+    row_cursor = len(df_all) + 3
+    worksheet.write(row_cursor, 0, "公司負擔勞健保", workbook.add_format({'bold': True, 'font_size': 20}))
+    cost_df = pd.DataFrame(company_cost_items, columns=["項目", "金額"])
+    cost_df.loc[len(cost_df.index)] = ["總額", int(company_cost_total)]
+    cost_df.to_excel(writer, sheet_name="薪資報表", startrow=row_cursor + 1, index=False)
 
-        row_cursor = len(df_all) + 2
-        worksheet.write(row_cursor, 0, "公司負擔勞健保", workbook.add_format({'bold': True, 'font_size': 20}))
-        cost_df = pd.DataFrame(company_cost_items, columns=["項目", "金額"])
-        cost_df.loc[len(cost_df.index)] = ["總額", int(company_cost_total)]
-        cost_df.to_excel(writer, sheet_name="薪資報表", startrow=row_cursor + 1, index=False)
+    row_cursor += len(cost_df) + 4
+    worksheet.write(row_cursor, 0, "總額統計薪資", workbook.add_format({'bold': True, 'font_size': 20}))
+    summary_df = pd.DataFrame(summary_records)
+    summary_df.to_excel(writer, sheet_name="薪資報表", startrow=row_cursor + 1, index=False)
 
-        row_cursor += len(cost_df) + 4
-        worksheet.write(row_cursor, 0, "總額統計薪資", workbook.add_format({'bold': True, 'font_size': 20}))
-        summary_df = pd.DataFrame(summary_records)
-        summary_df.to_excel(writer, sheet_name="薪資報表", startrow=row_cursor + 1, index=False)
 
     st.download_button(
         label="📂 下載薪資報表",
