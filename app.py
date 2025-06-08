@@ -154,8 +154,15 @@ if uploaded_files and month_input:
             df_person = pd.DataFrame(records)
             df_person.sort_values(by="日期", inplace=True)
 
-            # 顯示轉換後的出勤報表
-            styled_df = df_person.style.applymap(lambda val: 'color: red; font-weight: bold' if isinstance(val, str) and '⏰ 還差' in val else '', subset=['異常提醒'])
+            df_person["上班時數(轉換)"] = df_person["上班時數"].apply(lambda x: parse_hours_str(str(x)))
+            df_person["加班時數(轉換)"] = df_person["加班時數"].apply(lambda x: parse_hours_str(str(x)))
+            total_work_hours = df_person["上班時數(轉換)"].sum()
+            total_ot_hours = df_person["加班時數(轉換)"].sum()
+            total_ot_pay = df_person["加班費"].replace('', 0).astype(int).sum()
+            total_salary = base_salary + total_ot_pay
+
+            styled_df = df_person.drop(columns=["上班時數(轉換)", "加班時數(轉換)"]).style.applymap(
+                lambda val: 'color: red; font-weight: bold' if isinstance(val, str) and '還差' in val else '', subset=['未滿9小時提醒'])
             st.markdown(f"#### 🧾 {name} 的出勤報表")
             st.dataframe(styled_df, use_container_width=True)
 
@@ -164,14 +171,6 @@ if uploaded_files and month_input:
             st.markdown(f"- 總加班時數：{format_hours_minutes(total_ot_hours)}")
             st.markdown(f"- 總加班費：{total_ot_pay} 元")
             st.markdown(f"- 應發總薪資：{total_salary} 元")
-
-            # 統計總工時、總加班時數與總加班費
-            df_person["上班時數(轉換)"] = df_person["上班時數"].apply(lambda x: parse_hours_str(str(x)))
-            df_person["加班時數(轉換)"] = df_person["加班時數"].apply(lambda x: parse_hours_str(str(x)))
-            total_work_hours = df_person["上班時數(轉換)"].sum()
-            total_ot_hours = df_person["加班時數(轉換)"].sum()
-            total_ot_pay = df_person["加班費"].replace('', 0).astype(int).sum()
-            total_salary = base_salary + total_ot_pay
 
             df_person.drop(columns=["上班時數(轉換)", "加班時數(轉換)"], inplace=True)
             df_person.to_excel(writer, sheet_name=name, index=False)
@@ -185,18 +184,15 @@ if uploaded_files and month_input:
                 "應發總薪資": total_salary
             })
 
-        # 將總表寫入 Excel
         df_summary = pd.DataFrame(summary_data)
         df_summary["公司負擔金額"] = company_cost_total
         df_summary["公司實付總金額"] = df_summary["應發總薪資"] + df_summary["公司負擔金額"]
         df_summary.to_excel(writer, sheet_name="總表", index=False)
 
-        # 公司負擔資訊
         company_df = pd.DataFrame(company_cost_items, columns=["項目", "金額"])
         company_df.loc[len(company_df.index)] = ["總額", company_cost_total]
         company_df.to_excel(writer, sheet_name="公司負擔金額", index=False)
 
-    # 加入下載按鈕
     st.markdown("---")
     st.markdown("### 📥 下載完整薪資報表")
     st.download_button(
@@ -205,4 +201,3 @@ if uploaded_files and month_input:
         file_name=f"{month_input}_薪資報表.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-    
