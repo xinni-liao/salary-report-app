@@ -197,7 +197,7 @@ if uploaded_files and month_input:
         all_records.append(df_person.drop(columns=["上班時數(轉換)", "加班時數(轉換)"]))
 
   output = io.BytesIO()
-with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+  with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     df_all = pd.concat(all_records)
     # 表格從第1列開始，0列寫標題
     df_all.to_excel(writer, sheet_name="薪資報表", index=False, startrow=1)
