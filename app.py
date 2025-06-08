@@ -1,3 +1,4 @@
+（以下為更新後完整程式碼）
 
 import streamlit as st
 import pandas as pd
@@ -152,6 +153,49 @@ if uploaded_files and month_input:
 
             df_person = pd.DataFrame(records)
             df_person.sort_values(by="日期", inplace=True)
+
+            # 顯示轉換後的出勤報表
+            styled_df = df_person.style.applymap(lambda val: 'color: red; font-weight: bold' if isinstance(val, str) and '⏰ 還差' in val else '', subset=['異常提醒'])
+            st.markdown(f"#### 🧾 {name} 的出勤報表")
+            st.dataframe(styled_df, use_container_width=True)
+
+            # 統計總工時、總加班時數與總加班費
+            df_person["上班時數(轉換)"] = df_person["上班時數"].apply(lambda x: parse_hours_str(str(x)))
+            df_person["加班時數(轉換)"] = df_person["加班時數"].apply(lambda x: parse_hours_str(str(x)))
+            total_work_hours = df_person["上班時數(轉換)"].sum()
+            total_ot_hours = df_person["加班時數(轉換)"].sum()
+            total_ot_pay = df_person["加班費"].replace('', 0).astype(int).sum()
+            total_salary = base_salary + total_ot_pay
+
+            df_person.to_excel(writer, sheet_name=name, index=False)
+
+            summary_data.append({
+                "員工姓名": name,
+                "基本薪資": base_salary,
+                "總工時": format_hours_minutes(total_work_hours),
+                "總加班時數": format_hours_minutes(total_ot_hours),
+                "加班費": total_ot_pay,
+                "應發總薪資": total_salary
+            })
+
+        # 將總表寫入 Excel
+        df_summary = pd.DataFrame(summary_data)
+        df_summary.to_excel(writer, sheet_name="總表", index=False)
+
+        # 公司負擔資訊
+        company_df = pd.DataFrame(company_cost_items, columns=["項目", "金額"])
+        company_df.loc[len(company_df.index)] = ["總額", company_cost_total]
+        company_df.to_excel(writer, sheet_name="公司負擔金額", index=False)
+
+    # 加入下載按鈕
+    st.markdown("---")
+    st.markdown("### 📥 下載完整薪資報表")
+    st.download_button(
+        label="📂 下載 Excel 報表",
+        data=output.getvalue(),
+        file_name=f"{month_input}_薪資報表.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
             for idx, row in df_person.iterrows():
                 if row["上班時間"] not in ["休假", ""] and ("~" not in str(row["上班時間"])):
