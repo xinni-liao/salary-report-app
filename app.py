@@ -182,6 +182,23 @@ if uploaded_files and month_input:
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         df_all.drop(columns=["上班時數(轉換)", "加班時數(轉換)"]).to_excel(writer, sheet_name="薪資報表", index=False)
+
+        # 新增總統計與公司負擔表格
+        summary_df = pd.DataFrame({
+            "項目": ["總工時", "總加班時數", "總加班費", "公司負擔金額", "公司實付總金額"],
+            "內容": [
+                format_hours_minutes(total_work_hours),
+                format_hours_minutes(total_ot_hours),
+                f"{total_ot_pay} 元",
+                f"{int(company_cost_total)} 元",
+                f"{int(company_cost_total + total_ot_pay)} 元"
+            ]
+        })
+        summary_df.to_excel(writer, sheet_name="薪資報表", startrow=len(df_all) + 3, index=False)
+
+        cost_df = pd.DataFrame(company_cost_items, columns=["項目", "金額"])
+        cost_df.loc[len(cost_df.index)] = ["總額", int(company_cost_total)]
+        cost_df.to_excel(writer, sheet_name="薪資報表", startrow=len(df_all) + len(summary_df) + 6, index=False)
     
     st.download_button(
         label="📂 下載薪資報表",
