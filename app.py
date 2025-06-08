@@ -157,47 +157,5 @@ if uploaded_files and month_input:
             for idx, row in df_person.iterrows():
                 if row["上班時間"] not in ["休假", ""] and ("~" not in str(row["上班時間"])):
                     df_person.at[idx, "異常提醒"] = "⚠️ 打卡不完整，請確認"
-
-            st.markdown(f"#### 📋 員工：{name} 的出勤報表")
-            styled_df = df_person.style.applymap(lambda val: 'color: red; font-weight: bold' if isinstance(val, str) and val.strip() else '', subset=['未滿9小時提醒'])
-st.dataframe(styled_df, use_container_width=True)
-
-            df_person["上班時數(轉換)"] = df_person["上班時數"].apply(lambda x: parse_hours_str(str(x)))
-            df_person["加班時數(轉換)"] = df_person["加班時數"].apply(lambda x: parse_hours_str(str(x)))
-            df_person["加班費"] = df_person["加班時數(轉換)"].apply(calc_ot_pay)
-
-            total_work = df_person["上班時數(轉換)"].sum()
-            total_ot = df_person["加班時數(轉換)"].sum()
-            total_pay = df_person["加班費"].sum()
-            total_salary = base_salary + total_pay
-
-            st.write(f"🕒 總上班時數：{format_hours_minutes(total_work)}")
-            st.write(f"⏱️ 總加班時數：{format_hours_minutes(total_ot)}")
-            st.write(f"💰 加班費：{int(total_pay)} 元")
-            st.write(f"💼 應發薪資總額：{int(total_salary)} 元")
-
-            df_person.drop(columns=["上班時數(轉換)", "加班時數(轉換)"], inplace=True)
-            df_person.to_excel(writer, sheet_name=name, index=False)
-
-            summary_data.append({
-                "員工姓名": name,
-                "基本薪資": base_salary,
-                "總上班時數": format_hours_minutes(total_work),
-                "總加班時數": format_hours_minutes(total_ot),
-                "加班費": total_pay,
-                "應發薪資總額": total_salary,
-                "公司額外負擔": company_cost_total
-            })
-
-        summary_df = pd.DataFrame(summary_data)
-        summary_df.to_excel(writer, sheet_name="總表", index=False)
-        pd.DataFrame(company_cost_items, columns=["項目", "金額"]).to_excel(writer, sheet_name="公司負擔金額", index=False)
-
-    output.seek(0)
-
-    st.download_button(
-        label="📥 下載完整薪資報表（Excel）",
-        data=output,
-        file_name=f"{month_input}_完整薪資報表.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+                elif row["未滿9小時提醒"]:
+                    df_person.at[idx, "異常提醒"] = f"⏰ 還差 {row['未滿9小時提醒']} 滿9小時"
