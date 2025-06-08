@@ -186,6 +186,6 @@ if uploaded_files and month_input:
     st.download_button(
         label="📂 下載薪資報表",
         data=output.getvalue(),
-        file_name=f"{month_input}_薪資明細.xlsx",
+        file_name=f"{month_input}_{name}_薪資明細.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
