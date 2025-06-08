@@ -80,21 +80,56 @@ if uploaded_files and month_input:
         base_salary = base_salary_inputs[name]
         extra_bonus = extra_bonus_inputs[name]
 
-        # 🔍 出勤報表內容模擬（回復「很好」當時的欄位）
-        df_display = pd.DataFrame({
-            "日期": ["2025-06-01", "2025-06-02"],
-            "上班時間": ["09:00", "08:30"],
-            "下班時間": ["18:00", "17:30"],
-            "上班時數": ["8 小時 0 分", "9 小時 0 分"],
-            "加班時數": ["0 小時 0 分", "0 小時 0 分"],
-            "異常提醒": ["", "還差 0 小時 0 分滿 9 小時"]
-        })
+        # 🔍 出勤報表實際產生內容（依據打卡資料）
+        df_display = df.copy()
+        if '上班時間' in df.columns and '下班時間' in df.columns:
+            def parse_time(t):
+                try:
+                    return datetime.strptime(t, '%H:%M')
+                except:
+                    return None
+
+            def calculate_work_hours(row):
+                start = parse_time(row['上班時間'])
+                end = parse_time(row['下班時間'])
+                if start and end:
+                    diff = end - start
+                    total_minutes = diff.total_seconds() / 60
+                    return int(total_minutes // 60), int(total_minutes % 60)
+                return None, None
+
+            work_hours_list = []
+            ot_hours_list = []
+            alerts = []
+
+            for _, row in df.iterrows():
+                h, m = calculate_work_hours(row)
+                if h is None:
+                    alerts.append("缺打卡")
+                    work_hours_list.append("-")
+                    ot_hours_list.append("-")
+                else:
+                    work_hours_list.append(f"{h} 小時 {m} 分")
+                    if h >= 9:
+                        ot = h - 9
+                        ot_hours_list.append(f"{ot} 小時 0 分")
+                        alerts.append("")
+                    else:
+                        miss = 9*60 - h*60 - m
+                        mh = miss // 60
+                        mm = miss % 60
+                        ot_hours_list.append("0 小時 0 分")
+                        alerts.append(f"還差 {int(mh)} 小時 {int(mm)} 分滿 9 小時")
+
+            df_display['上班時數'] = work_hours_list
+            df_display['加班時數'] = ot_hours_list
+            df_display['異常提醒'] = alerts
 
         st.markdown(f"### 👤 {name} 的出勤報表總覽")
         st.dataframe(df_display)
 
-        # ✅ 前端總統計顯示
-        total_work_hours = 160  # 模擬
+        # ✅ 前端總統計顯示（先模擬）
+        total_work_hours = 160
         total_ot_hours = 10
         total_ot_pay = 1620
         total_salary = base_salary + extra_bonus + total_ot_pay
