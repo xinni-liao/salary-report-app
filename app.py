@@ -188,6 +188,9 @@ if uploaded_files and month_input:
         )
         st.dataframe(styled, use_container_width=True)
 
+        st.markdown(f"##### 📌 總統計 - {name}")
+        st.dataframe(pd.DataFrame([summary_records[-1]]), use_container_width=True)
+
         all_records.append(df_person.drop(columns=["上班時數(轉換)", "加班時數(轉換)"]))
 
     output = io.BytesIO()
