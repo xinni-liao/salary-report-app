@@ -39,7 +39,7 @@ extra_bonus_inputs = {}
 if uploaded_files:
     for file in uploaded_files:
         default_name = file.name.split(".")[0].replace(".xlsx", "")
-        custom_name = st.text_input(f"輸入員工姓名：({file.name})", value=default_name)
+        custom_name = st.text_input(f"輸入員工姓名：", value=default_name)
         custom_names[file.name] = custom_name
         base_salary_inputs[custom_name] = st.number_input(f"輸入 {custom_name} 的基本薪資：", value=30000, step=1000)
         extra_bonus_inputs[custom_name] = st.number_input(f"輸入 {custom_name} 的額外獎金：", value=0, step=500)
@@ -168,6 +168,7 @@ if uploaded_files and month_input:
         total_work_hours = df_person["上班時數(轉換)"].sum()
         total_ot_hours = df_person["加班時數(轉換)"].sum()
         total_salary = base_salary + total_ot_pay + extra_bonus
+        total_paid_by_company = total_salary + int(company_cost_total)
 
         summary_records.append({
             "姓名": name,
@@ -177,7 +178,7 @@ if uploaded_files and month_input:
             "額外獎金": f"{extra_bonus} 元",
             "總薪資": f"{total_salary} 元",
             "公司負擔金額": f"{int(company_cost_total)} 元",
-            "公司實付總金額": f"{int(company_cost_total + total_ot_pay)} 元"
+            "公司實付總金額": f"{int(total_paid_by_company)} 元"
         })
 
         st.markdown(f"#### 🧾 出勤報表總覽 - {name}")
@@ -204,6 +205,6 @@ if uploaded_files and month_input:
     st.download_button(
         label="📂 下載薪資報表",
         data=output.getvalue(),
-        file_name=f"{month_input}_薪資明細.xlsx",
+        file_name=f"{month_input}_{'_'.join(custom_names.values())}_薪資明細.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
