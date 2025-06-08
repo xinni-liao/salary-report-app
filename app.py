@@ -60,7 +60,6 @@ for label, default_val in company_cost_items_default:
 
 company_cost_total = sum([v for _, v in company_cost_items])
 
-# 合併後，這裡不再顯示「公司實際負擔項目（即時更新）」，僅產生 company_table_md 供下方使用
 company_table_md = """
 | 項目             | 金額（元） |
 |------------------|------------|
@@ -95,6 +94,7 @@ def calc_ot_pay(ot_hours):
 if uploaded_files and month_input:
     all_records = []
     summary_records = []
+    edited_records = []
 
     for file in uploaded_files:
         name = custom_names[file.name]
@@ -161,9 +161,15 @@ if uploaded_files and month_input:
         df_person = pd.DataFrame(records)
         df_person.sort_values(by=["日期"], inplace=True)
 
-        total_ot_pay = df_person["加班費"].replace('', 0).astype(int).sum()
-        total_work_hours = df_person["上班時數(轉換)"].sum()
-        total_ot_hours = df_person["加班時數(轉換)"].sum()
+        # ====== 前端出勤報表可編輯，總統計即時變動 ======
+        show_df = df_person.drop(columns=["上班時數(轉換)", "加班時數(轉換)"])
+        st.markdown(f"#### 🧾 出勤報表總覽 - {name}")
+        edited_df = st.data_editor(show_df, key=f"editor_{name}", use_container_width=True, num_rows="dynamic")
+
+        # 重新計算統計（以你最新編輯內容為準）
+        total_ot_pay = pd.to_numeric(edited_df["加班費"].replace('', 0)).sum()
+        total_work_hours = edited_df["上班時數"].apply(parse_hours_str).sum()
+        total_ot_hours = edited_df["加班時數"].apply(parse_hours_str).sum()
         total_salary = base_salary + total_ot_pay + extra_bonus
         total_paid_by_company = total_salary + int(company_cost_total)
 
@@ -178,25 +184,18 @@ if uploaded_files and month_input:
             "公司實付總金額": f"{int(total_paid_by_company)} 元"
         })
 
-        st.markdown(f"#### 🧾 出勤報表總覽 - {name}")
-        styled = df_person.drop(columns=["上班時數(轉換)", "加班時數(轉換)"]).style.applymap(
-            lambda val: 'color: red; font-weight: bold' if isinstance(val, str) and '還差' in val else '',
-            subset=['未滿9小時提醒']
-        )
-        st.dataframe(styled, use_container_width=True)
-
         st.markdown(f"#### 🧾 公司負擔勞健保 - {name}")
         st.markdown(company_table_md)
 
         st.markdown(f"#### 🧾 總額統計薪資 - {name}")
         st.dataframe(pd.DataFrame([summary_records[-1]]), use_container_width=True)
 
-        all_records.append(df_person.drop(columns=["上班時數(轉換)", "加班時數(轉換)"]))
+        edited_records.append(edited_df)
 
+    # ====== 下載報表區塊，會輸出你最新編輯內容 ======
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        df_all = pd.concat(all_records)
-        # 表格從第1列開始，0列寫標題
+        df_all = pd.concat(edited_records)
         df_all.to_excel(writer, sheet_name="薪資報表", index=False, startrow=1)
         workbook = writer.book
         worksheet = writer.sheets["薪資報表"]
