@@ -1,4 +1,4 @@
-
+（以下為更新後完整程式碼）
 
 import streamlit as st
 import pandas as pd
@@ -94,102 +94,105 @@ def calc_ot_pay(ot_hours):
 
 if uploaded_files and month_input:
     summary_data = []
-    for file in uploaded_files:
-        name = custom_names[file.name]
-        base_salary = base_salary_inputs.get(name, 30000)
-
-        df = pd.read_excel(file, header=None)
-        df.columns = ["狀態", "時間", "工時"]
-        df = df.dropna(subset=["時間"])
-        df["時間"] = pd.to_datetime(df["時間"])
-
-        records = []
-        i = 0
-        while i < len(df):
-            if i + 1 < len(df):
-                row_in = df.iloc[i]
-                row_out = df.iloc[i + 1]
-                if row_in["狀態"] == "上班" and row_out["狀態"] == "下班":
-                    date = row_in["時間"].date()
-                    in_time = row_in["時間"].strftime("%H:%M")
-                    out_time = row_out["時間"].strftime("%H:%M")
-                    work_duration = row_out["時間"] - row_in["時間"]
-                    total_hours = round(work_duration.total_seconds() / 3600, 2)
-                    ot_hours = round(max(total_hours - 9, 0), 2)  # 九小時後才算加班
-                    ot_pay = calc_ot_pay(ot_hours)
-                    records.append({
-                        "日期": date.day,
-                        "上班時間": f"{in_time}~{out_time}",
-                        "上班時數": format_hours_minutes(total_hours),
-                        "加班時數": format_hours_minutes(ot_hours) if ot_hours > 0 else '',
-                        "加班費": ot_pay if ot_hours > 0 else ''
-                    })
-                    i += 2
-                else:
-                    i += 1
-            else:
-                i += 1
-
-        all_dates = pd.date_range(start=month_input + "-01", periods=31, freq="D")
-        all_dates = [d.date() for d in all_dates if d.month == datetime.strptime(month_input, "%Y-%m").month]
-        daily_status = df.groupby(df["時間"].dt.date)["狀態"].apply(list).to_dict()
-        holiday_days = [d for d in all_dates if d not in daily_status or not any(s in ["上班", "下班"] for s in daily_status[d])]
-
-        for d in holiday_days:
-            records.append({
-                "日期": d.day,
-                "上班時間": "休假",
-                "上班時數": '',
-                "加班時數": '',
-                "加班費": ''
-            })
-
-        for record in records:
-            if record.get("上班時間") not in ["休假", ""] and ("~" not in record.get("上班時間", "")):
-                record["異常提醒"] = "⚠️ 打卡不完整，請確認"
-            else:
-                record["異常提醒"] = ""
-
-        df_person = pd.DataFrame(records)
-        df_person.sort_values(by="日期", inplace=True)
-
-        st.markdown(f"#### 📋 員工：{name} 的出勤報表")
-        edited_df = st.data_editor(df_person, use_container_width=True, num_rows="dynamic")
-
-        recalculated_df = edited_df.copy()
-        recalculated_df["上班時數(轉換)"] = edited_df["上班時數"].apply(lambda x: parse_hours_str(str(x)))
-        recalculated_df["加班時數(轉換)"] = edited_df["加班時數"].apply(lambda x: parse_hours_str(str(x)))
-        recalculated_df["加班費"] = recalculated_df["加班時數(轉換)"].apply(calc_ot_pay)
-
-        total_work = recalculated_df["上班時數(轉換)"].sum()
-        total_ot = recalculated_df["加班時數(轉換)"].sum()
-        total_pay = recalculated_df["加班費"].sum()
-        total_salary = base_salary + total_pay
-
-        st.write("#### 📈 本月統計結果")
-        st.write(f"🕒 總上班時數：{format_hours_minutes(total_work)}")
-        st.write(f"⏱️ 總加班時數：{format_hours_minutes(total_ot)}")
-        st.write(f"💰 加班費：{int(total_pay)} 元")
-        st.write(f"💼 應發薪資總額：{int(total_salary)} 元")
-
-        summary_data.append({
-            "員工姓名": name,
-            "基本薪資": base_salary,
-            "總上班時數": format_hours_minutes(total_work),
-            "總加班時數": format_hours_minutes(total_ot),
-            "加班費": total_pay,
-            "應發薪資總額": total_salary,
-            "公司額外負擔": company_cost_total
-        })
-
-    summary_df = pd.DataFrame(summary_data)
-    st.markdown("---")
-    st.markdown("### 🧾 薪資報表總覽（下載前預覽）")
-    st.dataframe(summary_df, use_container_width=True)
-
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+        for file in uploaded_files:
+            name = custom_names[file.name]
+            base_salary = base_salary_inputs.get(name, 30000)
+
+            df = pd.read_excel(file, header=None)
+            df.columns = ["狀態", "時間", "工時"]
+            df = df.dropna(subset=["時間"])
+            df["時間"] = pd.to_datetime(df["時間"])
+
+            records = []
+            i = 0
+            while i < len(df):
+                if i + 1 < len(df):
+                    row_in = df.iloc[i]
+                    row_out = df.iloc[i + 1]
+                    if row_in["狀態"] == "上班" and row_out["狀態"] == "下班":
+                        date = row_in["時間"].date()
+                        in_time = row_in["時間"].strftime("%H:%M")
+                        out_time = row_out["時間"].strftime("%H:%M")
+                        work_duration = row_out["時間"] - row_in["時間"]
+                        total_hours = round(work_duration.total_seconds() / 3600, 2)
+                        ot_hours = round(max(total_hours - 9, 0), 2)
+                        ot_pay = calc_ot_pay(ot_hours)
+                        shortage = round(9 - total_hours, 2) if total_hours < 9 else 0
+                        records.append({
+                            "日期": date.day,
+                            "上班時間": f"{in_time}~{out_time}",
+                            "上班時數": format_hours_minutes(total_hours),
+                            "加班時數": format_hours_minutes(ot_hours) if ot_hours > 0 else '',
+                            "加班費": ot_pay if ot_hours > 0 else '',
+                            "未滿9小時提醒": format_hours_minutes(shortage) if shortage > 0 else '',
+                            "異常提醒": ""
+                        })
+                        i += 2
+                    else:
+                        i += 1
+                else:
+                    i += 1
+
+            all_dates = pd.date_range(start=month_input + "-01", periods=31, freq="D")
+            all_dates = [d.date() for d in all_dates if d.month == datetime.strptime(month_input, "%Y-%m").month]
+            daily_status = df.groupby(df["時間"].dt.date)["狀態"].apply(list).to_dict()
+            holiday_days = [d for d in all_dates if d not in daily_status or not any(s in ["上班", "下班"] for s in daily_status[d])]
+
+            for d in holiday_days:
+                records.append({
+                    "日期": d.day,
+                    "上班時間": "休假",
+                    "上班時數": '',
+                    "加班時數": '',
+                    "加班費": '',
+                    "未滿9小時提醒": '',
+                    "異常提醒": ""
+                })
+
+            df_person = pd.DataFrame(records)
+            df_person.sort_values(by="日期", inplace=True)
+
+            for idx, row in df_person.iterrows():
+                if row["上班時間"] not in ["休假", ""] and ("~" not in str(row["上班時間"])):
+                    df_person.at[idx, "異常提醒"] = "⚠️ 打卡不完整，請確認"
+
+            st.markdown(f"#### 📋 員工：{name} 的出勤報表")
+            styled_df = df_person.style.applymap(lambda val: 'color: red; font-weight: bold' if isinstance(val, str) and val.strip() else '', subset=['未滿9小時提醒'])
+st.dataframe(styled_df, use_container_width=True)
+
+            df_person["上班時數(轉換)"] = df_person["上班時數"].apply(lambda x: parse_hours_str(str(x)))
+            df_person["加班時數(轉換)"] = df_person["加班時數"].apply(lambda x: parse_hours_str(str(x)))
+            df_person["加班費"] = df_person["加班時數(轉換)"].apply(calc_ot_pay)
+
+            total_work = df_person["上班時數(轉換)"].sum()
+            total_ot = df_person["加班時數(轉換)"].sum()
+            total_pay = df_person["加班費"].sum()
+            total_salary = base_salary + total_pay
+
+            st.write(f"🕒 總上班時數：{format_hours_minutes(total_work)}")
+            st.write(f"⏱️ 總加班時數：{format_hours_minutes(total_ot)}")
+            st.write(f"💰 加班費：{int(total_pay)} 元")
+            st.write(f"💼 應發薪資總額：{int(total_salary)} 元")
+
+            df_person.drop(columns=["上班時數(轉換)", "加班時數(轉換)"], inplace=True)
+            df_person.to_excel(writer, sheet_name=name, index=False)
+
+            summary_data.append({
+                "員工姓名": name,
+                "基本薪資": base_salary,
+                "總上班時數": format_hours_minutes(total_work),
+                "總加班時數": format_hours_minutes(total_ot),
+                "加班費": total_pay,
+                "應發薪資總額": total_salary,
+                "公司額外負擔": company_cost_total
+            })
+
+        summary_df = pd.DataFrame(summary_data)
         summary_df.to_excel(writer, sheet_name="總表", index=False)
+        pd.DataFrame(company_cost_items, columns=["項目", "金額"]).to_excel(writer, sheet_name="公司負擔金額", index=False)
+
     output.seek(0)
 
     st.download_button(
