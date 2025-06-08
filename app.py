@@ -80,25 +80,40 @@ if uploaded_files and month_input:
         base_salary = base_salary_inputs[name]
         extra_bonus = extra_bonus_inputs[name]
 
-        # 模擬報表（請替換為真實轉換邏輯）
-        summary_data = {
-            "項目": ["總工時", "總加班時數", "總加班費", "基本薪資", "額外獎金", "公司負擔總額", "公司實付總金額"],
-            "數值": [160, 10, 1620, base_salary, extra_bonus, company_cost_total, base_salary + extra_bonus + company_cost_total + 1620]
-        }
-        summary_df = pd.DataFrame(summary_data)
+        # 🔍 這裡假設 df 為完整出勤表內容
+        st.markdown(f"### 👤 {name} 的出勤報表總覽")
+        st.dataframe(df)
 
-        # 建立 Excel 並下載
+        # ✅ 前端總統計顯示
+        total_work_hours = 160  # 模擬
+        total_ot_hours = 10
+        total_ot_pay = 1620
+        total_salary = base_salary + extra_bonus + total_ot_pay
+        total_payment = total_salary + company_cost_total
+
+        st.markdown("### 📌 總額統計薪資")
+        st.markdown(f"- 總工時：{total_work_hours} 小時")
+        st.markdown(f"- 總加班時數：{total_ot_hours} 小時")
+        st.markdown(f"- 總加班費：{total_ot_pay} 元")
+        st.markdown(f"- 基本薪資：{base_salary} 元")
+        st.markdown(f"- 額外獎金：{extra_bonus} 元")
+        st.markdown(f"- 公司負擔金額：{company_cost_total} 元")
+        st.markdown(f"- 公司實付總金額：{total_payment} 元")
+
+        # ✅ 建立 Excel 並下載
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            # 出勤報表總覽（模擬）
             workbook = writer.book
+            worksheet_format = workbook.add_format({"bold": True, "font_size": 20})
+
+            # 出勤報表總覽
             df.to_excel(writer, sheet_name='薪資報表', startrow=1, index=False)
             worksheet = writer.sheets['薪資報表']
-            worksheet.write(0, 0, "出勤報表總覽", workbook.add_format({"bold": True, "font_size": 20}))
+            worksheet.write(0, 0, "出勤報表總覽", worksheet_format)
 
-            # 公司負擔表
+            # 公司負擔
             row_offset = len(df) + 4
-            worksheet.write(row_offset, 0, "公司負擔勞健保", workbook.add_format({"bold": True, "font_size": 20}))
+            worksheet.write(row_offset, 0, "公司負擔勞健保", worksheet_format)
             for idx, (label, value) in enumerate(company_cost_items):
                 worksheet.write(row_offset + 1 + idx, 0, label)
                 worksheet.write(row_offset + 1 + idx, 1, value)
@@ -107,10 +122,19 @@ if uploaded_files and month_input:
 
             # 總統計
             stat_offset = row_offset + len(company_cost_items) + 4
-            worksheet.write(stat_offset, 0, "總額統計薪資", workbook.add_format({"bold": True, "font_size": 20}))
-            for idx, row in summary_df.iterrows():
-                worksheet.write(stat_offset + 1 + idx, 0, row['項目'])
-                worksheet.write(stat_offset + 1 + idx, 1, row['數值'])
+            worksheet.write(stat_offset, 0, "總額統計薪資", worksheet_format)
+            summary_data = [
+                ("總工時", total_work_hours),
+                ("總加班時數", total_ot_hours),
+                ("總加班費", total_ot_pay),
+                ("基本薪資", base_salary),
+                ("額外獎金", extra_bonus),
+                ("公司負擔金額", company_cost_total),
+                ("公司實付總金額", total_payment),
+            ]
+            for i, (label, val) in enumerate(summary_data):
+                worksheet.write(stat_offset + 1 + i, 0, label)
+                worksheet.write(stat_offset + 1 + i, 1, val)
 
         st.download_button(
             label=f"📥 下載 {name} 的報表",
