@@ -72,7 +72,6 @@ for label, value in company_cost_items:
 company_table_md += f"| **總額** | **{int(company_cost_total)}** |"
 st.markdown(company_table_md)
 
-# ✅ 加入報表下載邏輯區
 if uploaded_files and month_input:
     for file in uploaded_files:
         df = pd.read_excel(file)
@@ -80,11 +79,16 @@ if uploaded_files and month_input:
         base_salary = base_salary_inputs[name]
         extra_bonus = extra_bonus_inputs[name]
 
-        # 🔍 這裡假設 df 為完整出勤表內容
+        # 模擬生成完整出勤表資料（這裡請根據實際邏輯擴充）
+        df['上班時間'] = ['09:00'] * len(df)
+        df['下班時間'] = ['18:00'] * len(df)
+        df['工時'] = ['9小時0分'] * len(df)
+        df['加班時數'] = ['0小時0分'] * len(df)
+        df['異常提醒'] = [''] * len(df)
+
         st.markdown(f"### 👤 {name} 的出勤報表總覽")
         st.dataframe(df)
 
-        # ✅ 前端總統計顯示
         total_work_hours = 160  # 模擬
         total_ot_hours = 10
         total_ot_pay = 1620
@@ -100,18 +104,16 @@ if uploaded_files and month_input:
         st.markdown(f"- 公司負擔金額：{company_cost_total} 元")
         st.markdown(f"- 公司實付總金額：{total_payment} 元")
 
-        # ✅ 建立 Excel 並下載
+        # 下載報表
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             workbook = writer.book
             worksheet_format = workbook.add_format({"bold": True, "font_size": 20})
 
-            # 出勤報表總覽
             df.to_excel(writer, sheet_name='薪資報表', startrow=1, index=False)
             worksheet = writer.sheets['薪資報表']
             worksheet.write(0, 0, "出勤報表總覽", worksheet_format)
 
-            # 公司負擔
             row_offset = len(df) + 4
             worksheet.write(row_offset, 0, "公司負擔勞健保", worksheet_format)
             for idx, (label, value) in enumerate(company_cost_items):
@@ -120,7 +122,6 @@ if uploaded_files and month_input:
             worksheet.write(row_offset + 1 + len(company_cost_items), 0, "總額")
             worksheet.write(row_offset + 1 + len(company_cost_items), 1, company_cost_total)
 
-            # 總統計
             stat_offset = row_offset + len(company_cost_items) + 4
             worksheet.write(stat_offset, 0, "總額統計薪資", worksheet_format)
             summary_data = [
